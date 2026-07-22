@@ -1,0 +1,351 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+describe('command shell responsive integration', () => {
+  const shellSource = readFileSync(path.join(process.cwd(), 'src/components/CommandShell.tsx'), 'utf8');
+  const dockSource = readFileSync(path.join(process.cwd(), 'src/components/RuntimeActivityDock.tsx'), 'utf8');
+  const plazaSource = readFileSync(path.join(process.cwd(), 'src/components/plaza/PlazaStage.tsx'), 'utf8');
+  const developmentSource = readFileSync(path.join(process.cwd(), 'src/components/DevelopmentModePanel.tsx'), 'utf8');
+  const connectorPanelSource = readFileSync(path.join(process.cwd(), 'src/components/ConnectorPanel.tsx'), 'utf8');
+  const connectorSource = readFileSync(path.join(process.cwd(), 'src/datasource/ConnectorContext.tsx'), 'utf8');
+  const serverBridgeSource = readFileSync(path.join(process.cwd(), 'src/lib/serverBridge.ts'), 'utf8');
+  const styles = readFileSync(path.join(process.cwd(), 'src/styles.css'), 'utf8');
+
+  it('closes the desktop runtime dock when the viewport becomes narrow', () => {
+    expect(shellSource).toContain("window.matchMedia('(min-width: 1100px)')");
+    expect(shellSource).toContain("addEventListener('change', closeDockOnNarrowViewport)");
+    expect(shellSource).toContain('if (!event.matches) setRuntimeOpen(false)');
+  });
+
+  it('closes the runtime dock again before opening the pilot preview', () => {
+    expect(shellSource).toContain('<PlazaStage onPilotPreviewOpen={() => setRuntimeOpen(false)} />');
+    expect(plazaSource).toContain('onPilotPreviewOpen?.()');
+  });
+
+  it('keeps an explicit mobile close control and the pilot above the dock', () => {
+    expect(dockSource).toContain('<span>收起</span>');
+    expect(styles).toMatch(/@media \(max-width: 720px\)[\s\S]*\.runtime-dock-head button span \{ display: inline;/);
+    expect(styles).toMatch(/\.pilot-plan \{[\s\S]*?z-index:\s*120;/);
+    expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*?\.command-topbar-right \{ flex: 0 0 auto; \}/);
+  });
+
+  it('keeps a mobile coordinator entry and a top-addressable scrolling demand console', () => {
+    expect(plazaSource).toContain('plaza-mobile-coordinator-button');
+    expect(plazaSource).toContain('向孔子呈递任务');
+    expect(plazaSource).toContain('autoFocus');
+    expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*?\.command-rail \{ flex-basis: 56px;/);
+    expect(styles).toMatch(/\.command-stage \{[\s\S]*?min-width: 0;[\s\S]*?min-height: 0;/);
+    expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*?\.plaza-console \{[\s\S]*?top: 8px;[\s\S]*?bottom: 8px;[\s\S]*?overflow-y: auto;[\s\S]*?touch-action: pan-y;/);
+    expect(styles).toMatch(/\.plaza-console header \{[\s\S]*?position: sticky;[\s\S]*?top: -12px;/);
+    expect(styles).toMatch(/\.plaza-mobile-coordinator-button \{[\s\S]*?display: inline-flex;[\s\S]*?z-index: 400;/);
+    expect(shellSource).toContain("activeDef ? ' has-drawer' : ''");
+    expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*?\.command-body\.has-drawer \.plaza-mobile-coordinator-button \{ display: none; \}/);
+    expect(styles).toMatch(/\.plaza-mobile-coordinator-button \{[\s\S]*?min-height: 44px;/);
+    expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*?\.runtime-dock \{[\s\S]*?z-index: 425;/);
+    expect(styles).toMatch(/\.pilot-plan \{[\s\S]*?z-index: 500;/);
+    expect(styles).toMatch(/@media \(max-width: 520px\) \{[\s\S]*?\.plaza3d-status,[\s\S]*?\.plaza3d-shell-status \{[\s\S]*?top: 62px;/);
+    expect(styles).toMatch(/@media \(max-width: 520px\) \{[\s\S]*?\.plaza3d-label \{[\s\S]*?min-width: 44px;[\s\S]*?min-height: 44px;/);
+    expect(styles).toMatch(/@media \(max-width: 520px\) \{[\s\S]*?\.development-decision-copy button \{[\s\S]*?min-height: 44px;/);
+  });
+
+  it('feeds a rejected change back to AG-DEV without claiming a workspace change', () => {
+    expect(developmentSource).toContain('CHANGE_REJECTED:');
+    expect(developmentSource).toContain('CHANGE_TARGETS_REFRESHED:');
+    expect(developmentSource).toContain('ACTION_FORMAT_REJECTED:');
+    expect(developmentSource).toContain('OUTPUT_REJECTED:');
+    expect(developmentSource).toContain('READ_ALREADY_AVAILABLE:');
+    expect(developmentSource).toContain('DISCOVERY_BUDGET_EXHAUSTED:');
+    expect(developmentSource).toContain('WRITE_ACTION_REQUIRED:');
+    expect(developmentSource).toContain('const MAX_IMPLEMENTATION_DISCOVERY_ACTIONS = 1');
+    expect(developmentSource).toContain('const MAX_FORCED_WRITE_REJECTIONS = 2');
+    expect(developmentSource).toContain('selectDevelopmentUnreadPaths(allowed, snapshot.files, contexts)');
+    expect(developmentSource).toContain('writeActionRequired = true');
+    expect(developmentSource).toContain("configured.kind === 'deepseek' && !stage.startsWith('review-')");
+    expect(developmentSource).toContain("? 'json_object'");
+    expect(developmentSource).toContain('responseFormat,');
+    expect(developmentSource).toContain('已提前停止以避免继续消耗 Provider');
+    expect(developmentSource).toContain('className="development-discovery-policy"');
+    expect(developmentSource).toContain('<details className="development-safety-details">');
+    expect(developmentSource).not.toContain('<details className="development-safety-details" open');
+    expect(developmentSource).toContain('Key 与模型正文不落盘 · 不开放任意 Shell · 不自动暂存、提交或推送');
+    expect(styles).toMatch(/\.development-safety-details summary \{[\s\S]*?min-height: 44px;/);
+    expect(styles).toContain('.development-safety-details[open] summary svg { transform: rotate(180deg); }');
+    expect(styles).toMatch(/\.development-intake-actions button \{[\s\S]*?min-height: 44px;/);
+    expect(styles).toMatch(/@media \(max-width: 520px\) \{[\s\S]*?\.development-safety-details summary \{ grid-template-columns: 1fr; \}/);
+    expect(developmentSource).toContain('createDevelopmentCommitDecisionPackage({');
+    expect(developmentSource).toContain('navigator.clipboard?.writeText');
+    expect(developmentSource).toContain('复制提交决策包');
+    expect(developmentSource).toContain('worktreeEvidenceSha256');
+    expect(developmentSource).toContain('.slice(0, 6)');
+    expect(developmentSource).toContain('let reviewPassed = false');
+    expect(developmentSource).toContain("const reviewers: Array<'AG-SEC' | 'AG-REVIEW'>");
+    expect(developmentSource).toContain("? ['AG-SEC', 'AG-REVIEW']");
+    expect(developmentSource).toContain('reviewers.findIndex((reviewer) => !reusableReviewerIds.has(reviewer))');
+    expect(developmentSource).toContain('独立安全审查证据已复用');
+    expect(developmentSource).toContain('后置质量复审改变了源码；重新执行 AG-SEC → AG-REVIEW 顺序门禁');
+    expect(developmentSource).toContain('旧单角色会话只能形成同角色自审，不能用于正式交付');
+    expect(developmentSource).toContain('2 / 4 / 5 角色顺序流水线');
+    expect(developmentSource).toContain("agents: 'dynamic-2-4-5-sequential-role-pipeline'");
+    expect(developmentSource).toContain('同角色自审 · 不可正式交付');
+    expect(developmentSource).toContain('`${session.agentPlan.size} 角色 · 顺序流水线`');
+    expect(developmentSource).toContain('浏览器验收和独立复审修复');
+    expect(developmentSource).not.toContain('Agent 动态编队');
+    expect(developmentSource).toContain('自主动作预算已用完且已有有效变更');
+    expect(developmentSource).toContain('修复周期 ${repairCycle}/2 · 动作 ${repairAttempt}/4');
+    expect(developmentSource).toContain('repairsRemaining - 1');
+    expect(developmentSource).toContain('commandResults = await verifyAndRepair(currentSession, userTask, analysis, contexts, snapshot);');
+    expect(developmentSource).not.toContain('verifyAndRepair(currentSession, userTask, analysis, contexts, snapshot, false)');
+    expect(developmentSource).toContain('TEST_PATH_CANDIDATES:');
+    expect(developmentSource).toContain('rankDevelopmentTestCandidates(userTask, snapshot.files)');
+    expect(developmentSource).toContain('[...testCandidates].reverse()');
+    expect(developmentSource).toContain("if (!reviewPassed) throw new Error('独立审查未给出 H0/M0 与 GATE:PASS，已安全停止')");
+    expect(developmentSource).toContain('routeDevelopmentModel(configured, agentId, stage)');
+    expect(developmentSource).toContain('modelOverride: route.model');
+    expect(developmentSource).not.toContain('developmentMessagesJson');
+    expect(developmentSource).toContain('await issueDevelopmentModelCall(server.url');
+    expect(developmentSource).toMatch(/await issueDevelopmentModelCall\(server\.url, \{[\s\S]*?\}, signal\);/);
+    expect(developmentSource).toContain('messages,');
+    expect(developmentSource).not.toContain('developmentMessageInputContract(messages)');
+    expect(developmentSource).toContain('modelRouteSha256,');
+    expect(developmentSource).toContain('providerReadinessSha256,');
+    expect(developmentSource).toContain('签发后换模型或换 Key 都会在 Provider 前被拒绝');
+    expect(developmentSource).toContain('本地签发响应丢失只以同一 runId 幂等重放一次');
+    expect(developmentSource).toContain('模型签发按同一 runId 在途单飞');
+    expect(developmentSource).toContain('并发断线重试只签发一份，完成后仍不缓存 token');
+    expect(developmentSource).toContain('开发预设、会话列表、预检、快照与源码检查均为只读启动链');
+    expect(developmentSource).toContain('服务切换会立即取消旧等待');
+    expect(developmentSource).toContain('安全停止会立即取消页面对已分类本地请求的等待');
+    expect(developmentSource).toContain('首次会话令牌补取也继承同一取消信号');
+    expect(developmentSource).toContain('模型取消回执与 failed 现场落账分别独立限时 5 秒');
+    expect(developmentSource).toContain('服务端已启动的原子变更、固定命令与浏览器验收仍按有界规则结算');
+    expect(developmentSource).toContain('开发模型原始消息与正文也不复制到共享运行事件');
+    expect(developmentSource).toContain('Provider 完成后的本地响应丢失只在原进程 10 分钟内重放内存结果');
+    expect(developmentSource).toContain('过期、淘汰、切换 Observer 工作区或服务重启后明确要求新 runId');
+    expect(developmentSource).toContain('开发预检、快照和源码检查等只读本地请求断线时会同请求恢复一次');
+    expect(developmentSource).toContain('受控代码变更或独立复审回执丢失，只在原进程 10 分钟内分别按同一 changeSetId / reviewId 恢复一次');
+    expect(developmentSource).toContain('不重复写入或重新调用复审模型');
+    expect(developmentSource).toContain('会话恢复绑定与 Final 响应丢失会以同一请求重新校验一次，不复用旧终态');
+    expect(developmentSource).toContain('新会话创建按一次性 creationId 单飞');
+    expect(developmentSource).toContain('根指纹、HEAD、任务哈希、用户确认的人民币费率/硬上限与受控工作树完全一致时自动取回已落账会话');
+    expect(developmentSource).toContain('不创建第二份，ID 换任务/根/费用合同或状态漂移固定拒绝');
+    expect(developmentSource).toContain('开发阶段转换按一次性 transitionId 落账');
+    expect(developmentSource).toContain('响应丢失只返回当前阶段，绝不把已前进的会话倒退');
+    expect(developmentSource).toContain('服务重启后以相同合同恢复');
+    expect(developmentSource).toContain('固定命令按一次性 executionId 单飞');
+    expect(developmentSource).toContain('成功或失败结果与输出尾只在原进程内最多 2 分钟 / 20 条恢复一次，不重复执行');
+    expect(developmentSource).toContain('持久账本只存脱敏执行占位而不存输出');
+    expect(developmentSource).toContain('缓存过期、工作区切换或服务重启后拒绝旧 ID，不猜测结果');
+    expect(developmentSource).toContain('test 稳定性复验');
+    expect(developmentSource).toContain('源码状态未变；固定测试仅再运行一次，不调用模型');
+    expect(developmentSource).toContain('shouldRetryDevelopmentTestForStability');
+    expect(developmentSource).toContain('current.stabilityRetriedSourceStates');
+    expect(developmentSource).toContain('{ stabilityRetryOf: result.executionId }');
+    expect(developmentSource).toContain('浏览器验收按 acceptanceId 在途单飞');
+    expect(developmentSource).toContain('只以 plan SHA 与源码状态恢复无截图回执');
+    expect(developmentSource).toContain('失败只用新 ID 自主重跑一次取诊断');
+    expect(developmentSource).toContain('截图正文绝不缓存或落账');
+    expect(developmentSource).toContain('模型调用不借此命令或验收合同重放');
+    expect(developmentSource).toContain('diagnosticRerunsRemaining = 1');
+    expect(developmentSource).toContain("result.recovered && result.status === 'failed'");
+    expect(developmentSource).toContain("const recovered = 'recovered' in result && result.recovered === true");
+    expect(developmentSource).toContain("reused: recovered || !('viewports' in result)");
+    expect(developmentSource).toContain('developmentAuthorization: issued.authorization');
+    expect(developmentSource.indexOf('await developmentMessageInputContract(messages)'))
+      .toBeLessThan(developmentSource.indexOf('await issueDevelopmentModelCall(server.url'));
+    expect(developmentSource.indexOf('await issueDevelopmentModelCall(server.url'))
+      .toBeLessThan(developmentSource.indexOf('const text = await connectors.chat(agentId, messages'));
+    expect(developmentSource).toContain('模型预算 {session.modelUsage.reservedCalls}/{session.modelUsage.maxCalls} 次');
+    expect(developmentSource).toContain('未启动 ${session.modelUsage.unstartedReservedCalls} 次（未访问 Provider，仍占预留）');
+    expect(developmentSource).toContain('输入预留 {(session.modelUsage.reservedInputBytes / 1_000)');
+    expect(developmentSource).toContain('次旧调用无输入计量');
+    expect(developmentSource).toContain('className="development-budget-usage"');
+    expect(developmentSource).toContain('Provider usage 回执 {session.modelUsage.usageReportedCalls}/{session.modelUsage.startedCalls} 次');
+    expect(developmentSource).toContain('usageMissingStartedCalls');
+    expect(developmentSource).toContain('className="development-observed-usage"');
+    expect(developmentSource).toContain('className="development-cost-policy"');
+    expect(developmentSource).toContain('我已确认费率覆盖本会话全部可能路由模型');
+    expect(developmentSource).toContain('costPolicy: newSessionCostPolicy!');
+    expect(developmentSource).toContain('className="development-cost-usage"');
+    expect(developmentSource).toContain('session.modelUsage.remainingCostMicros');
+    expect(styles).toContain('.development-session-card .development-budget-usage');
+    expect(styles).toContain('.development-session-card .development-observed-usage');
+    expect(styles).toContain('.development-session-card .development-cost-usage');
+    expect(styles).toContain('.development-cost-grid');
+    expect(styles).toMatch(/\.command-drawer-body \{[\s\S]*?overflow-x:\s*hidden;/);
+    expect(styles).toMatch(/\.command-drawer-body \{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\);/);
+    expect(styles).toMatch(/\.command-drawer-body > \* \{[\s\S]*?min-width:\s*0;/);
+    expect(developmentSource).toContain('DeepSeek：Flash 首轮 · Pro 复审');
+    expect(developmentSource).toContain('Node / Python 固定验证');
+    expect(developmentSource).toContain('Node 项目脚本、Python 已声明工具与固定 Web 入口');
+    expect(developmentSource).toContain('fetchDevelopmentPreset(server.url, controller.signal)');
+    expect(developmentSource).toContain("controller.abort('server_changed')");
+    expect(developmentSource).toContain('submitDevelopmentReview(server.url');
+    expect(developmentSource).toContain('finalized.reviewBlockers.length');
+    expect(developmentSource).toContain('变更被安全拒绝');
+    expect(developmentSource).toContain('continue;');
+  });
+
+  it('checks the dynamic plan before create while preserving exact resume identity', () => {
+    const preflight = developmentSource.indexOf('await preflightDevelopmentSession(server.url');
+    const create = developmentSource.indexOf('await createDevelopmentSession(');
+    expect(preflight).toBeGreaterThan(-1);
+    expect(create).toBeGreaterThan(preflight);
+    expect(developmentSource).toContain('shouldPrepareDevelopmentProvidersBeforeSession(preflight.mode)');
+    expect(developmentSource).toContain("ensureDevelopmentProviders(preflight.agentPlan.agents, 'before-session')");
+    expect(developmentSource).toContain("preflight.mode === 'resume'");
+    expect(developmentSource).toContain('await resumeDevelopmentSession(server.url');
+    expect(developmentSource).toMatch(/createDevelopmentSession\([\s\S]*?runAbortRef\.current\?\.signal/);
+    expect(developmentSource).toContain('未写入会话且未调用模型');
+    expect(developmentSource).not.toContain('restoreLatest');
+    expect(developmentSource).not.toContain('listDevelopmentSessions');
+    expect(developmentSource).not.toContain('恢复最近会话');
+    expect(developmentSource).toContain('setSession(null)');
+    expect(developmentSource).toContain('for (let index = settled.length - 1; index >= 0; index -= 1)');
+    expect(developmentSource).toContain('const activityIdRef = useRef(0)');
+    expect(developmentSource).toContain('activityIdRef.current += 1');
+    expect(developmentSource).toContain('const activityId = activityIdRef.current');
+    expect(developmentSource).toContain('id: activityId');
+    expect(developmentSource).not.toContain('id: Date.now() + current.length');
+  });
+
+  it('continues a controlled resumed diff at verification without replaying implementation', () => {
+    expect(developmentSource).toContain('selectDevelopmentExecutionStage(initialSession, snapshot.gitStatus)');
+    expect(developmentSource).toContain("if (executionStage === 'verify')");
+    expect(developmentSource).toContain('跳过重复分析与实现');
+    expect(developmentSource).toContain('currentSession.changeSetCount}:implementation:');
+    expect(developmentSource).toContain('currentSession.changeSetCount}:review-fix:');
+    expect(developmentSource).toContain('current.changeSetCount}:verification-fix:');
+    expect(developmentSource).toContain('current.changeSetCount}:browser-fix:');
+    expect(developmentSource).toContain('selectDevelopmentEvidenceReuse(current, commands, snapshot.worktreeStateSha256, false)');
+    expect(developmentSource).toContain('验证证据已复用');
+    expect(developmentSource).toContain('浏览器证据已复用');
+    expect(developmentSource).toContain('独立审查证据已复用');
+    expect(developmentSource).toContain('return finalizeDevelopmentDelivery(currentSession, browserAcceptance)');
+    expect(developmentSource).toContain('工作树哈希与当前门禁策略版本均一致时，才自动复用已通过的命令、浏览器和复审证据');
+    expect(developmentSource).toContain('文件或策略变化只重跑失效门禁及后续复审');
+  });
+
+  it('reopens an unchanged final-ready delivery without Provider or model work', () => {
+    expect(developmentSource).toContain("preflight.mode === 'reopen'");
+    expect(developmentSource).toContain('恢复已验收交付');
+    expect(developmentSource).toContain('无需重新加载 Key 或调用模型');
+    expect(developmentSource).toContain('交付已就绪，无需再次调用 Provider');
+    expect(developmentSource).toContain('providerReady || delivery?.ready');
+    expect(developmentSource).toContain('shouldPrepareDevelopmentProvidersBeforeSession(preflight.mode)');
+    expect(developmentSource).toContain('finalizeDevelopmentSession(server.url, activeSession.sessionId)');
+  });
+
+  it('safely stops an active independent-development run and keeps it resumable', () => {
+    expect(developmentSource).toContain('const { server, cancelOrchestrationRun } = useProjectData()');
+    expect(developmentSource).toContain('const runAbortRef = useRef<AbortController | null>(null)');
+    expect(developmentSource).toContain('const activeModelRunIdRef = useRef(\'\')');
+    expect(developmentSource).toContain('const executionAttemptRef = useRef(\'\')');
+    expect(developmentSource).toContain('function stopIfRequested()');
+    expect(developmentSource).toContain('async function requestSafeStop()');
+    expect(developmentSource).toContain('runAbortRef.current?.abort(\'user_stop\')');
+    expect(developmentSource).toContain('await cancelOrchestrationRun(runId)');
+    expect(developmentSource.indexOf("runAbortRef.current?.abort('user_stop')"))
+      .toBeLessThan(developmentSource.indexOf('await cancelOrchestrationRun(runId)'));
+    expect(developmentSource).toContain("cancelError?.includes('不存在')");
+    expect(developmentSource).toContain('signal: runAbortRef.current?.signal');
+    expect(developmentSource).toContain('createDevelopmentModelRunId(');
+    expect(developmentSource).toContain('executionAttemptRef.current');
+    expect(developmentSource).toContain('runDevelopmentModelWithTransientRetry(async (retryAttempt) =>');
+    expect(developmentSource).toContain('重新签发并消耗一次会话硬预算');
+    expect(developmentSource).toContain('retryOfReservationId = issued.authorization.reservationId');
+    expect(developmentSource).toContain('失败回执 ${session.modelUsage.failureReportedCalls}');
+    expect(developmentSource).toContain('自动补发 ${session.modelUsage.transientRetryCalls}');
+    expect(developmentSource).toContain('const failedSignal = AbortSignal.timeout(5_000)');
+    expect(developmentSource).toMatch(/await updateDevelopmentProgress\([\s\S]*?'failed',[\s\S]*?failedSignal,[\s\S]*?\);/);
+    expect(developmentSource).toContain("failureMessage !== '开发会话尚未绑定工作区；请先恢复该会话'");
+    expect(developmentSource).toMatch(/await resumeDevelopmentSession\(failedServerUrl, \{[\s\S]*?sessionId: activeSession\.sessionId,[\s\S]*?root: root\.trim\(\),[\s\S]*?task: task\.trim\(\),[\s\S]*?\}, failedSignal\);/);
+    expect(developmentSource).toContain("runAbortRef.current.abort('server_changed')");
+    expect(developmentSource).toContain("controller.abort('panel_unmounted')");
+    expect(developmentSource).toContain('cancelDetachedDevelopmentRun(previous.url, runId)');
+    expect(developmentSource).toContain('previous.serviceInstanceId === next.serviceInstanceId');
+    expect(developmentSource).toContain('server.serviceInstanceId');
+    expect(developmentSource).toContain('const sameUrlReplacement = previous.url === next.url');
+    expect(developmentSource).toContain('runId && previous.connected && !sameUrlReplacement');
+    expect(developmentSource).toContain('const recoveredServer = await waitForConnectedLifecycleServer(failedSignal)');
+    expect(developmentSource).toContain('recoveredServer.serviceInstanceId !== runServiceInstanceIdRef.current');
+    expect(shellSource).toContain('const [developmentRunning, setDevelopmentRunning] = useState(false)');
+    expect(shellSource).toContain('if (developmentRunning) return');
+    expect(shellSource).toContain("disabled={developmentRunning && panel.id !== 'development'}");
+    expect(shellSource).toContain('disabled={developmentRunning}');
+    expect(shellSource).toContain('onRunningChange={setDevelopmentRunning}');
+    expect(developmentSource).toContain('已安全停止并保留现场');
+    expect(developmentSource).toContain('安全停止并保留现场');
+    expect(styles).toMatch(/\.development-stop \{[\s\S]*?border:/);
+  });
+
+  it('eagerly prepares Providers for create and defers resume until the first real model call', () => {
+    expect(developmentSource).toContain('const providerPreparationRef = useRef<Promise<void> | null>(null)');
+    expect(developmentSource).toContain('async function ensureDevelopmentProviders(');
+    expect(developmentSource).toContain('await connectors.ensureAgentProviders(agentIds');
+    expect(developmentSource).toContain('signal: runAbortRef.current?.signal');
+    expect(developmentSource).toContain('onActiveRunId: (runId) => { activeModelRunIdRef.current = runId; }');
+    expect(developmentSource).toContain('动态编队所需配置已通过测试');
+    expect(developmentSource).toContain("await ensureDevelopmentProviders(preflight.agentPlan.agents, 'before-session')");
+    expect(developmentSource).toContain("await ensureDevelopmentProviders(active.agentPlan.agents, 'model-call')");
+    expect(developmentSource).toContain('既有会话已安全保留，未开始本次任务模型调用');
+    expect(developmentSource).toContain('setProviderPreparationDeferred(preflight.mode === \'resume\')');
+    expect(developmentSource).toContain('先复用本地证据；确需模型时才自动测试 Provider');
+    expect(developmentSource).toContain('新会话启动前校验 Provider；恢复会话按需准备');
+    expect(developmentSource).not.toContain('已自动采用唯一配置并绑定动态编队');
+    expect(developmentSource.indexOf('await preflightDevelopmentSession(server.url'))
+      .toBeLessThan(developmentSource.indexOf("await ensureDevelopmentProviders(preflight.agentPlan.agents, 'before-session')"));
+    expect(developmentSource.indexOf('if (!costPolicyConfirmed)'))
+      .toBeLessThan(developmentSource.indexOf("await ensureDevelopmentProviders(preflight.agentPlan.agents, 'before-session')"));
+    expect(developmentSource.indexOf("await ensureDevelopmentProviders(preflight.agentPlan.agents, 'before-session')"))
+      .toBeLessThan(developmentSource.indexOf('activeSession = await createDevelopmentSession('));
+    expect(developmentSource.indexOf("await ensureDevelopmentProviders(active.agentPlan.agents, 'model-call')"))
+      .toBeLessThan(developmentSource.indexOf('await issueDevelopmentModelCall(server.url'));
+    expect(developmentSource).toContain('(model) => { reviewModel = model; }');
+    expect(developmentSource.indexOf('(model) => { reviewModel = model; }'))
+      .toBeLessThan(developmentSource.indexOf('modelId: reviewModel'));
+    expect(connectorSource).toContain('planAgentProviderPreparation(slotsRef.current, bindingsRef.current, agentIds)');
+    expect(connectorSource).toContain('selectUnambiguousUnifiedProvider(');
+    expect(connectorSource).toContain('slotsRef.current, current.unifiedKind');
+    expect(connectorSource).toContain('配置在测试期间已修改，未采用旧测试结果');
+    expect(connectorPanelSource).toContain('独立开发新会话会在只读预检后测试动态编队需要的唯一或显式绑定配置');
+    expect(connectorPanelSource).toContain('恢复会话则先复用本地证据，只有确需模型时才自动测试');
+    expect(shellSource).toContain('useState<DevelopmentModeDraft>');
+    expect(shellSource).toContain('draft={developmentDraft}');
+    expect(shellSource).toContain('onDraftChange={setDevelopmentDraft}');
+    expect(shellSource).toContain("onOpenConnectors={() => togglePanel('connectors')}");
+    expect(developmentSource).toContain('const draft = controlledDraft ?? localDraft');
+    expect(developmentSource).toContain('if (onDraftChange) onDraftChange(next)');
+    expect(developmentSource).toContain('打开智能体接入');
+    expect(developmentSource).toContain('!running');
+    expect(developmentSource).toContain("error.includes('Provider')");
+    expect(styles).toMatch(/\.development-error button \{[\s\S]*?min-height: 32px;/);
+    expect(styles).toMatch(/@media \(max-width: 520px\)[\s\S]*?\.development-error button \{ width: 100%; min-height: 44px;/);
+    expect(developmentSource).not.toContain('localStorage');
+    expect(developmentSource).not.toContain('sessionStorage');
+  });
+
+  it('keeps the exact clean-or-controlled-resume gate visible above the development root input', () => {
+    expect(developmentSource).toContain('className="development-clean-note"');
+    expect(developmentSource).toContain('新会话仅接受 <code>clean</code>；精确命中中断会话的 <code>dirty</code> 工作树可自动续跑。');
+    expect(styles).toMatch(/\.development-clean-note \{[\s\S]*?display: flex;[\s\S]*?background: #fff5ed;/);
+  });
+
+  it('classifies every development bridge request and cancels active local waits', () => {
+    expect(serverBridgeSource).not.toContain('async function developmentRequest');
+    expect(serverBridgeSource).toContain('type DevelopmentLocallyReplayablePath =');
+    expect(serverBridgeSource).toContain('developmentReadOnlyRequest');
+    expect(serverBridgeSource).toContain('developmentIdempotentOperationRequest');
+    expect(serverBridgeSource).toContain('developmentRevalidatedOperationRequest');
+    expect(developmentSource).toContain('function currentRunSignal()');
+    expect(developmentSource).toContain('fetchDevelopmentSnapshotRequest(serverUrl, sessionId, currentRunSignal())');
+    expect(developmentSource).toContain('applyDevelopmentPatchRequest(serverUrl, input, currentRunSignal())');
+    expect(developmentSource).toContain('submitDevelopmentReviewRequest(serverUrl, input, currentRunSignal())');
+    expect(developmentSource).toContain('finalizeDevelopmentSessionRequest(serverUrl, sessionId, currentRunSignal())');
+    expect(developmentSource).toMatch(/preflightDevelopmentSession\(server\.url, \{[\s\S]*?\}, currentRunSignal\(\)\);/);
+    expect(developmentSource).toMatch(/resumeDevelopmentSession\(server\.url, \{[\s\S]*?\}, currentRunSignal\(\)\);/);
+    expect(developmentSource).toMatch(/updateDevelopmentProgress\([\s\S]*?'verifying',[\s\S]*?currentRunSignal\(\),[\s\S]*?\);/);
+    expect(developmentSource).toContain('const failedSignal = AbortSignal.timeout(5_000)');
+    expect(developmentSource).toMatch(/await updateDevelopmentProgress\([\s\S]*?'failed',[\s\S]*?failedSignal,[\s\S]*?\);/);
+  });
+});
