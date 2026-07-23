@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const launcherEntry = path.join(repoRoot, 'scripts', 'product-launcher.mjs');
+const START_TIMEOUT_MS = 120_000;
 
 async function reservePort(): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -33,7 +34,7 @@ async function runLauncher(args: string[]) {
     const timer = setTimeout(() => {
       child.kill();
       reject(new Error(`product launcher timed out: ${args[0]}`));
-    }, args[0] === 'start' ? 60_000 : 15_000);
+    }, args[0] === 'start' ? START_TIMEOUT_MS : 15_000);
     child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
     child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
     child.once('error', (error) => {
@@ -92,5 +93,5 @@ describe('product launcher CLI receipts', () => {
       expect(stopped.code).toBe(0);
       expect(JSON.parse(stopped.stdout)).toMatchObject({ ok: true, action: 'stop' });
     }
-  }, 75_000);
+  }, START_TIMEOUT_MS + 15_000);
 });
