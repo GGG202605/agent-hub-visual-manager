@@ -2812,6 +2812,7 @@ const MIME_TYPES = {
 };
 
 async function serveStatic(pathname, response) {
+  response.setHeader('cache-control', 'no-store');
   if (!fs.existsSync(DIST_DIR)) {
     response.writeHead(503, { 'content-type': 'text/plain; charset=utf-8' });
     response.end('dist/ 不存在：请先运行 npm run build（或使用 start-all.bat 自动构建）。开发模式请用 start-dev.bat。');

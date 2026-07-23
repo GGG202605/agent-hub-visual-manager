@@ -5,14 +5,14 @@ import path from 'node:path';
 export const AGENTHUB_BUILD_STAMP = path.join('dist', '.agenthub-build-input.sha256');
 export const AGENTHUB_PRODUCT_PORT = 8794;
 const BUILD_INPUTS = [
-  'index.html',
-  'package.json',
-  'package-lock.json',
-  'tsconfig.json',
-  'tsconfig.node.json',
-  'vite.config.ts',
-  'src',
-  'public',
+  { relative: 'index.html' },
+  { relative: 'package.json' },
+  { relative: 'package-lock.json' },
+  { relative: 'tsconfig.json' },
+  { relative: 'tsconfig.node.json' },
+  { relative: 'vite.config.ts' },
+  { relative: 'src' },
+  { relative: 'public', optional: true },
 ];
 
 export function parseProductLauncherArgs(argv, repoRoot) {
@@ -56,7 +56,9 @@ export function parseProductLauncherArgs(argv, repoRoot) {
 export async function createBuildFingerprint(repoRoot) {
   const root = path.resolve(repoRoot);
   const files = [];
-  for (const relative of BUILD_INPUTS) await collectInputFiles(root, relative, files);
+  for (const input of BUILD_INPUTS) {
+    await collectInputFiles(root, input.relative, files, input.optional);
+  }
   files.sort((left, right) => left.localeCompare(right, 'en'));
   const hash = createHash('sha256');
   for (const relative of files) {
@@ -133,12 +135,13 @@ export function buildNpmInvocation(platform, comSpec, action) {
   return { executable: 'npm', args: fixedArgs };
 }
 
-async function collectInputFiles(root, relative, files) {
+async function collectInputFiles(root, relative, files, optional = false) {
   const target = path.join(root, relative);
   let stat;
   try {
     stat = await fsp.lstat(target);
   } catch (error) {
+    if (error?.code === 'ENOENT' && optional) return;
     if (error?.code === 'ENOENT') throw new Error(`产品构建输入缺失：${relative}`);
     throw error;
   }

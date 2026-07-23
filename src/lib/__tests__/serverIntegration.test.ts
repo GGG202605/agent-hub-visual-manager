@@ -199,6 +199,9 @@ describe('local server approval boundary', () => {
   });
 
   it('rejects untrusted browser origins before exposing local metadata or session capability', async () => {
+    const staticResponse = await fetch(`${baseUrl}/`);
+    expect(staticResponse.headers.get('cache-control')).toBe('no-store');
+
     const healthResponse = await fetch(`${baseUrl}/api/health`, {
       headers: { origin: 'http://127.0.0.1:5173' },
     });

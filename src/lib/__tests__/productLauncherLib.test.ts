@@ -88,6 +88,19 @@ describe('product launcher argument boundary', () => {
 });
 
 describe('content-addressed product build freshness', () => {
+  it('allows Vite projects without an optional public directory and tracks it once added', async () => {
+    const root = await createProductRoot();
+    await rm(path.join(root, 'public'), { recursive: true });
+
+    const withoutPublic = await createBuildFingerprint(root);
+    await writeBuildStamp(root, withoutPublic);
+    expect(await readBuildFreshness(root)).toMatchObject({ current: true, fingerprint: withoutPublic });
+
+    await mkdir(path.join(root, 'public'));
+    await writeFile(path.join(root, 'public', 'asset.txt'), 'asset-v1\n', 'utf8');
+    expect((await readBuildFreshness(root)).fingerprint).not.toBe(withoutPublic);
+  });
+
   it('reuses an exact built fingerprint and invalidates it on source changes only', async () => {
     const root = await createProductRoot();
     const first = await createBuildFingerprint(root);
